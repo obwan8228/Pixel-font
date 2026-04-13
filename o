@@ -3659,210 +3659,216 @@ local Library do
                 end
             end
 
--- Helper to safely get input position (fixes the nil error)
+-- Make sure these are defined at the top of your script
+local UserInputService = game:GetService("UserInputService")
+
+-- Helper: Safely get input position for Mouse or Touch
 local function GetInputPosition(Input)
-    if not Input then return nil end
-    
-    if Input.UserInputType == Enum.UserInputType.Touch or 
-       Input.UserInputType == Enum.UserInputType.MouseMovement or 
-       Input.UserInputType == Enum.UserInputType.MouseButton1 then
-        return Input.Position
-    end
-    return nil
+	if not Input then return nil end
+	if Input.Position then
+		return Input.Position
+	end
+	return nil
+end
+
+-- Helper: Safely get the actual GuiObject from Items table (supports both .Instance and direct frame)
+local function GetFrame(Item)
+	if not Item then return nil end
+	if typeof(Item) == "Instance" then
+		return Item
+	elseif Item.Instance then
+		return Item.Instance
+	end
+	return nil
 end
 
 -- ==================== SET COLOR ====================
 function Colorpicker:Set(Color, Alpha)
-    if type(Color) == "table" then
-        Color = FromRGB(Color[1], Color[2], Color[3])
-        Alpha = Color[4]
-    elseif type(Color) == "string" then
-        Color = FromHex(Color)
-    end 
+	if type(Color) == "table" then
+		Color = FromRGB(Color[1], Color[2], Color[3])
+		Alpha = Color[4]
+	elseif type(Color) == "string" then
+		Color = FromHex(Color)
+	end 
 
-    Colorpicker.Hue, Colorpicker.Saturation, Colorpicker.Value = Color:ToHSV()
-    Colorpicker.Alpha = Alpha or 0  
+	Colorpicker.Hue, Colorpicker.Saturation, Colorpicker.Value = Color:ToHSV()
+	Colorpicker.Alpha = Alpha or 0  
 
-    local PaletteValueX = MathClamp(1 - Colorpicker.Saturation, 0, 0.99)
-    local PaletteValueY = MathClamp(1 - Colorpicker.Value, 0, 0.99)
+	local PaletteValueX = MathClamp(1 - Colorpicker.Saturation, 0, 0.99)
+	local PaletteValueY = MathClamp(1 - Colorpicker.Value, 0, 0.99)
 
-    local AlphaPositionX = MathClamp(Colorpicker.Alpha, 0, 0.995)
-    local HuePositionY   = MathClamp(Colorpicker.Hue, 0, 0.995)
+	local AlphaPositionX = MathClamp(Colorpicker.Alpha, 0, 0.995)
+	local HuePositionY   = MathClamp(Colorpicker.Hue, 0, 0.995)
 
-    Items["PaletteDragger"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(PaletteValueX, 0, PaletteValueY, 0)})
-    Items["HueDragger"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0, 0, HuePositionY, 0)})
-    Items["AlphaDragger"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(AlphaPositionX, 0, 0, 0)})
+	Items["PaletteDragger"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(PaletteValueX, 0, PaletteValueY, 0)})
+	Items["HueDragger"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0, 0, HuePositionY, 0)})
+	Items["AlphaDragger"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(AlphaPositionX, 0, 0, 0)})
 
-    Colorpicker:Update(true, true)
+	Colorpicker:Update(true, true)
 end
 
--- Button to open/close (works on both mouse and touch)
-Items["ColorpickerButton"]:Connect("Activated", function()
-    Colorpicker:SetOpen(not Colorpicker.IsOpen)
-end)
+-- ==================== BUTTON (Open/Close) ====================
+local ColorpickerButton = GetFrame(Items["ColorpickerButton"])
+if ColorpickerButton then
+	ColorpickerButton.Activated:Connect(function()
+		Colorpicker:SetOpen(not Colorpicker.IsOpen)
+	end)
+end
 
--- ==================== SLIDING FUNCTIONS (Safe for Mobile) ====================
+-- ==================== SLIDING FUNCTIONS ====================
 
 local SlidingPalette = false
 function Colorpicker:SlidePalette(Input)
-    if not SlidingPalette then return end
-    local pos = GetInputPosition(Input)
-    if not pos then return end
+	if not SlidingPalette then return end
+	local pos = GetInputPosition(Input)
+	if not pos then return end
 
-    local Palette = Items["Palette"].Instance
-    if not Palette then return end
+	local frame = GetFrame(Items["Palette"])
+	if not frame or not frame.AbsolutePosition or not frame.AbsoluteSize then return end
 
-    local relX = (pos.X - Palette.AbsolutePosition.X) / Palette.AbsoluteSize.X
-    local relY = (pos.Y - Palette.AbsolutePosition.Y) / Palette.AbsoluteSize.Y
+	local relX = (pos.X - frame.AbsolutePosition.X) / frame.AbsoluteSize.X
+	local relY = (pos.Y - frame.AbsolutePosition.Y) / frame.AbsoluteSize.Y
 
-    Colorpicker.Saturation = MathClamp(1 - relX, 0, 1)
-    Colorpicker.Value      = MathClamp(1 - relY, 0, 1)
+	Colorpicker.Saturation = MathClamp(1 - relX, 0, 1)
+	Colorpicker.Value      = MathClamp(1 - relY, 0, 1)
 
-    local SlideX = MathClamp(relX, 0, 0.99)
-    local SlideY = MathClamp(relY, 0, 0.99)
+	local SlideX = MathClamp(relX, 0, 0.99)
+	local SlideY = MathClamp(relY, 0, 0.99)
 
-    Items["PaletteDragger"]:Tween(
-        TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), 
-        {Position = UDim2New(SlideX, 0, SlideY, 0)}
-    )
-    Colorpicker:Update(false, true)
+	Items["PaletteDragger"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(SlideX, 0, SlideY, 0)})
+	Colorpicker:Update(false, true)
 end
 
 local SlidingHue = false
 function Colorpicker:SlideHue(Input)
-    if not SlidingHue then return end
-    local pos = GetInputPosition(Input)
-    if not pos then return end
+	if not SlidingHue then return end
+	local pos = GetInputPosition(Input)
+	if not pos then return end
 
-    local HueFrame = Items["Hue"].Instance or Items["HueInline"].Instance
-    if not HueFrame then return end
+	local frame = GetFrame(Items["HueInline"]) or GetFrame(Items["Hue"])
+	if not frame or not frame.AbsolutePosition or not frame.AbsoluteSize then return end
 
-    local relY = (pos.Y - HueFrame.AbsolutePosition.Y) / HueFrame.AbsoluteSize.Y
+	local relY = (pos.Y - frame.AbsolutePosition.Y) / frame.AbsoluteSize.Y
 
-    Colorpicker.Hue = MathClamp(relY, 0, 1)
+	Colorpicker.Hue = MathClamp(relY, 0, 1)
 
-    local SlideY = MathClamp(relY, 0, 0.995)
+	local SlideY = MathClamp(relY, 0, 0.995)
 
-    Items["HueDragger"]:Tween(
-        TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), 
-        {Position = UDim2New(0, 0, SlideY, 0)}
-    )
-    Colorpicker:Update(false, true)
+	Items["HueDragger"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0, 0, SlideY, 0)})
+	Colorpicker:Update(false, true)
 end
 
 local SlidingAlpha = false
 function Colorpicker:SlideAlpha(Input)
-    if not SlidingAlpha then return end
-    local pos = GetInputPosition(Input)
-    if not pos then return end
+	if not SlidingAlpha then return end
+	local pos = GetInputPosition(Input)
+	if not pos then return end
 
-    local AlphaFrame = Items["Alpha"].Instance
-    if not AlphaFrame then return end
+	local frame = GetFrame(Items["Alpha"])
+	if not frame or not frame.AbsolutePosition or not frame.AbsoluteSize then return end
 
-    local relX = (pos.X - AlphaFrame.AbsolutePosition.X) / AlphaFrame.AbsoluteSize.X
+	local relX = (pos.X - frame.AbsolutePosition.X) / frame.AbsoluteSize.X
 
-    Colorpicker.Alpha = MathClamp(relX, 0, 1)
+	Colorpicker.Alpha = MathClamp(relX, 0, 1)
 
-    local SlideX = MathClamp(relX, 0, 0.995)
+	local SlideX = MathClamp(relX, 0, 0.995)
 
-    Items["AlphaDragger"]:Tween(
-        TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), 
-        {Position = UDim2New(SlideX, 0, 0, 0)}
-    )
-    Colorpicker:Update(true, true)
+	Items["AlphaDragger"]:Tween(TweenInfo.new(Library.Tween.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(SlideX, 0, 0, 0)})
+	Colorpicker:Update(true, true)
 end
 
--- ==================== INPUT HANDLING ====================
-
+-- ==================== INPUT BEGAN (Start Sliding) ====================
 Library:Connect(UserInputService.InputBegan, function(Input, gameProcessed)
-    if gameProcessed then return end
-    if Input.UserInputType ~= Enum.UserInputType.MouseButton1 and 
-       Input.UserInputType ~= Enum.UserInputType.Touch then 
-        return 
-    end
+	if gameProcessed then return end
+	if Input.UserInputType ~= Enum.UserInputType.MouseButton1 and Input.UserInputType ~= Enum.UserInputType.Touch then 
+		return 
+	end
 
-    local pos = GetInputPosition(Input)
-    if not pos then return end
+	local pos = GetInputPosition(Input)
+	if not pos then return end
 
-    -- Palette Sliding
-    if Items["Palette"] and Items["Palette"].Instance then
-        local frame = Items["Palette"].Instance
-        if Library:IsMouseOverFrame(frame) or 
-           (pos.X >= frame.AbsolutePosition.X and pos.X <= frame.AbsolutePosition.X + frame.AbsoluteSize.X and
-            pos.Y >= frame.AbsolutePosition.Y and pos.Y <= frame.AbsolutePosition.Y + frame.AbsoluteSize.Y) then
-            
-            SlidingPalette = true
-            Colorpicker:SlidePalette(Input)
-        end
-    end
+	-- Palette
+	local paletteFrame = GetFrame(Items["Palette"])
+	if paletteFrame then
+		if Library:IsMouseOverFrame(paletteFrame) or
+		   (pos.X >= paletteFrame.AbsolutePosition.X and pos.X <= paletteFrame.AbsolutePosition.X + paletteFrame.AbsoluteSize.X and
+		    pos.Y >= paletteFrame.AbsolutePosition.Y and pos.Y <= paletteFrame.AbsolutePosition.Y + paletteFrame.AbsoluteSize.Y) then
+			
+			SlidingPalette = true
+			Colorpicker:SlidePalette(Input)
+		end
+	end
 
-    -- Hue Sliding
-    if Items["HueInline"] and Items["HueInline"].Instance then
-        local frame = Items["HueInline"].Instance
-        if Library:IsMouseOverFrame(frame) or 
-           (pos.X >= frame.AbsolutePosition.X and pos.X <= frame.AbsolutePosition.X + frame.AbsoluteSize.X and
-            pos.Y >= frame.AbsolutePosition.Y and pos.Y <= frame.AbsolutePosition.Y + frame.AbsoluteSize.Y) then
-            
-            SlidingHue = true
-            Colorpicker:SlideHue(Input)
-        end
-    end
+	-- Hue
+	local hueFrame = GetFrame(Items["HueInline"]) or GetFrame(Items["Hue"])
+	if hueFrame then
+		if Library:IsMouseOverFrame(hueFrame) or
+		   (pos.X >= hueFrame.AbsolutePosition.X and pos.X <= hueFrame.AbsolutePosition.X + hueFrame.AbsoluteSize.X and
+		    pos.Y >= hueFrame.AbsolutePosition.Y and pos.Y <= hueFrame.AbsolutePosition.Y + hueFrame.AbsoluteSize.Y) then
+			
+			SlidingHue = true
+			Colorpicker:SlideHue(Input)
+		end
+	end
 
-    -- Alpha Sliding
-    if Items["Alpha"] and Items["Alpha"].Instance then
-        local frame = Items["Alpha"].Instance
-        if Library:IsMouseOverFrame(frame) or 
-           (pos.X >= frame.AbsolutePosition.X and pos.X <= frame.AbsolutePosition.X + frame.AbsoluteSize.X and
-            pos.Y >= frame.AbsolutePosition.Y and pos.Y <= frame.AbsolutePosition.Y + frame.AbsoluteSize.Y) then
-            
-            SlidingAlpha = true
-            Colorpicker:SlideAlpha(Input)
-        end
-    end
+	-- Alpha
+	local alphaFrame = GetFrame(Items["Alpha"])
+	if alphaFrame then
+		if Library:IsMouseOverFrame(alphaFrame) or
+		   (pos.X >= alphaFrame.AbsolutePosition.X and pos.X <= alphaFrame.AbsolutePosition.X + alphaFrame.AbsoluteSize.X and
+		    pos.Y >= alphaFrame.AbsolutePosition.Y and pos.Y <= alphaFrame.AbsolutePosition.Y + alphaFrame.AbsoluteSize.Y) then
+			
+			SlidingAlpha = true
+			Colorpicker:SlideAlpha(Input)
+		end
+	end
 end)
 
--- Handle movement (Mouse + Touch)
+-- ==================== INPUT CHANGED (While Dragging) ====================
 Library:Connect(UserInputService.InputChanged, function(Input)
-    if Input.UserInputType == Enum.UserInputType.MouseMovement or 
-       Input.UserInputType == Enum.UserInputType.Touch then
-        
-        if SlidingPalette then Colorpicker:SlidePalette(Input) end
-        if SlidingHue then Colorpicker:SlideHue(Input) end
-        if SlidingAlpha then Colorpicker:SlideAlpha(Input) end
-    end
+	if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+		if SlidingPalette then Colorpicker:SlidePalette(Input) end
+		if SlidingHue    then Colorpicker:SlideHue(Input)    end
+		if SlidingAlpha  then Colorpicker:SlideAlpha(Input)  end
+	end
 end)
 
--- Handle release (works for both mouse and touch)
+-- ==================== INPUT ENDED (Release) ====================
 Library:Connect(UserInputService.InputEnded, function(Input)
-    if Input.UserInputType == Enum.UserInputType.MouseButton1 or 
-       Input.UserInputType == Enum.UserInputType.Touch then
-        
-        SlidingPalette = false
-        SlidingHue = false
-        SlidingAlpha = false
-    end
+	if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+		SlidingPalette = false
+		SlidingHue     = false
+		SlidingAlpha   = false
+	end
 end)
 
--- Close colorpicker when clicking outside
+-- ==================== CLOSE WHEN CLICKING OUTSIDE ====================
 Library:Connect(UserInputService.InputBegan, function(Input)
-    if not Colorpicker.IsOpen then return end
-    if Input.UserInputType ~= Enum.UserInputType.MouseButton1 and 
-       Input.UserInputType ~= Enum.UserInputType.Touch then 
-        return 
-    end
+	if not Colorpicker.IsOpen then return end
+	if Input.UserInputType ~= Enum.UserInputType.MouseButton1 and Input.UserInputType ~= Enum.UserInputType.Touch then 
+		return 
+	end
 
-    if Library:IsMouseOverFrame(Items["ColorpickerWindow"]) then
-        return
-    end
+	local window = GetFrame(Items["ColorpickerWindow"])
+	if window and Library:IsMouseOverFrame(window) then
+		return
+	end
 
-    -- Add your keyframe checks here if needed
-    Colorpicker:SetOpen(false)
+	-- Optional: Add your keyframe colorpicker checks here
+	if KeyframeOneLabel and KeyframeTwoLabel then
+		local kf1 = GetFrame(KeyframeOneColorpickerItems and KeyframeOneColorpickerItems["ColorpickerWindow"])
+		local kf2 = GetFrame(KeyframeTwoColorpickerItems and KeyframeTwoColorpickerItems["ColorpickerWindow"])
+		if kf1 and Library:IsMouseOverFrame(kf1) then return end
+		if kf2 and Library:IsMouseOverFrame(kf2) then return end
+	end
+
+	Colorpicker:SetOpen(false)
 end)
 
--- Set default color
+-- ==================== DEFAULT COLOR ====================
 if Data.Default then
-    Colorpicker:Set(Data.Default, Data.Alpha)
-    OldColor = Colorpicker.Color
+	Colorpicker:Set(Data.Default, Data.Alpha)
+	OldColor = Colorpicker.Color
 end
 
             Library.Colorpickers[Colorpicker] = Colorpicker
