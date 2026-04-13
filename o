@@ -1052,16 +1052,39 @@ local Library do
         end
     end
 
-    Library.IsMouseOverFrame = function(self, Frame, XOffset, YOffset)
+    -- Improved IsMouseOverFrame - Works on Mouse + Touch (Mobile)
+Library.IsMouseOverFrame = function(self, Frame, XOffset, YOffset)
+    if not Frame then return false end
+    
+    -- Support both direct Instance and tables with .Instance
+    if typeof(Frame) == "table" and Frame.Instance then
         Frame = Frame.Instance
-        XOffset = XOffset or 0 
-        YOffset = YOffset or 0
-
-        local MousePosition = Vector2New(Mouse.X + XOffset, Mouse.Y + YOffset)
-
-        return MousePosition.X >= Frame.AbsolutePosition.X and MousePosition.X <= Frame.AbsolutePosition.X + Frame.AbsoluteSize.X 
-        and MousePosition.Y >= Frame.AbsolutePosition.Y and MousePosition.Y <= Frame.AbsolutePosition.Y + Frame.AbsoluteSize.Y
     end
+    
+    if not Frame or not Frame.AbsolutePosition or not Frame.AbsoluteSize then
+        return false
+    end
+
+    XOffset = XOffset or 0
+    YOffset = YOffset or 0
+
+    local MousePosition
+
+    -- Use UserInputService:GetMouseLocation() - This works reliably on both PC and Mobile (touch)
+    if UserInputService then
+        MousePosition = UserInputService:GetMouseLocation()
+    else
+        -- Fallback (rare)
+        MousePosition = Vector2.new(Mouse.X, Mouse.Y)
+    end
+
+    MousePosition = MousePosition + Vector2.new(XOffset, YOffset)
+
+    return MousePosition.X >= Frame.AbsolutePosition.X 
+       and MousePosition.X <= Frame.AbsolutePosition.X + Frame.AbsoluteSize.X 
+       and MousePosition.Y >= Frame.AbsolutePosition.Y 
+       and MousePosition.Y <= Frame.AbsolutePosition.Y + Frame.AbsoluteSize.Y
+end
 
     Library.Lerp = function(self, Start, Finish, Time)
         return Start + (Finish - Start) * Time
