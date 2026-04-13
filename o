@@ -3682,13 +3682,21 @@ end
                 end
             end
 
--- ==================== COLORPICKER - FULL MOBILE + PC SUPPORT ====================
+-- ==================== COLORPICKER - FIXED FOR MOBILE ====================
 
--- Helper: Safely get actual GuiObject
+-- Safe helpers
 local function GetFrame(item)
 	if not item then return nil end
 	if typeof(item) == "Instance" then return item end
 	if item.Instance then return item.Instance end
+	return nil
+end
+
+local function GetInputPosition(Input)
+	if not Input then return nil end
+	if Input.Position then
+		return Input.Position
+	end
 	return nil
 end
 
@@ -3717,7 +3725,7 @@ function Colorpicker:Set(Color, Alpha)
 	Colorpicker:Update(true, true)
 end
 
--- ==================== OPEN / CLOSE BUTTON ====================
+-- ==================== BUTTON ====================
 local ColorpickerButton = GetFrame(Items["ColorpickerButton"])
 if ColorpickerButton then
 	ColorpickerButton.Activated:Connect(function()
@@ -3725,12 +3733,12 @@ if ColorpickerButton then
 	end)
 end
 
--- ==================== SLIDING FUNCTIONS (Safe) ====================
+-- ==================== SLIDING FUNCTIONS (with nil protection) ====================
 
 local SlidingPalette = false
 function Colorpicker:SlidePalette(Input)
 	if not SlidingPalette then return end
-	local pos = Input.Position
+	local pos = GetInputPosition(Input)
 	if not pos then return end
 
 	local frame = GetFrame(Items["Palette"])
@@ -3752,7 +3760,7 @@ end
 local SlidingHue = false
 function Colorpicker:SlideHue(Input)
 	if not SlidingHue then return end
-	local pos = Input.Position
+	local pos = GetInputPosition(Input)
 	if not pos then return end
 
 	local frame = GetFrame(Items["HueInline"]) or GetFrame(Items["Hue"])
@@ -3771,7 +3779,7 @@ end
 local SlidingAlpha = false
 function Colorpicker:SlideAlpha(Input)
 	if not SlidingAlpha then return end
-	local pos = Input.Position
+	local pos = GetInputPosition(Input)
 	if not pos then return end
 
 	local frame = GetFrame(Items["Alpha"])
@@ -3787,26 +3795,26 @@ function Colorpicker:SlideAlpha(Input)
 	Colorpicker:Update(true, true)
 end
 
--- ==================== INPUT HANDLING ====================
-
--- Start dragging
+-- ==================== INPUT BEGAN - Better hit detection for mobile ====================
 Library:Connect(UserInputService.InputBegan, function(Input, gameProcessed)
 	if gameProcessed then return end
 	if Input.UserInputType ~= Enum.UserInputType.MouseButton1 and Input.UserInputType ~= Enum.UserInputType.Touch then 
 		return 
 	end
 
-	local pos = Input.Position
+	local pos = GetInputPosition(Input)
 	if not pos then return end
 
 	-- Palette
-	if GetFrame(Items["Palette"]) then
-		local frame = GetFrame(Items["Palette"])
-		if Library:IsMouseOverFrame(frame) or
-		   (pos.X >= frame.AbsolutePosition.X and pos.X <= frame.AbsolutePosition.X + frame.AbsoluteSize.X and
-		    pos.Y >= frame.AbsolutePosition.Y and pos.Y <= frame.AbsolutePosition.Y + frame.AbsoluteSize.Y) then
+	local paletteFrame = GetFrame(Items["Palette"])
+	if paletteFrame then
+		if Library:IsMouseOverFrame(paletteFrame) or
+		   (pos.X >= paletteFrame.AbsolutePosition.X and pos.X <= paletteFrame.AbsolutePosition.X + paletteFrame.AbsoluteSize.X and
+		    pos.Y >= paletteFrame.AbsolutePosition.Y and pos.Y <= paletteFrame.AbsolutePosition.Y + paletteFrame.AbsoluteSize.Y) then
+			
 			SlidingPalette = true
 			Colorpicker:SlidePalette(Input)
+			return  -- optional: prevent checking others if wanted
 		end
 	end
 
@@ -3816,24 +3824,27 @@ Library:Connect(UserInputService.InputBegan, function(Input, gameProcessed)
 		if Library:IsMouseOverFrame(hueFrame) or
 		   (pos.X >= hueFrame.AbsolutePosition.X and pos.X <= hueFrame.AbsolutePosition.X + hueFrame.AbsoluteSize.X and
 		    pos.Y >= hueFrame.AbsolutePosition.Y and pos.Y <= hueFrame.AbsolutePosition.Y + hueFrame.AbsoluteSize.Y) then
+			
 			SlidingHue = true
 			Colorpicker:SlideHue(Input)
+			return
 		end
 	end
 
 	-- Alpha
-	if GetFrame(Items["Alpha"]) then
-		local frame = GetFrame(Items["Alpha"])
-		if Library:IsMouseOverFrame(frame) or
-		   (pos.X >= frame.AbsolutePosition.X and pos.X <= frame.AbsolutePosition.X + frame.AbsoluteSize.X and
-		    pos.Y >= frame.AbsolutePosition.Y and pos.Y <= frame.AbsolutePosition.Y + frame.AbsoluteSize.Y) then
+	local alphaFrame = GetFrame(Items["Alpha"])
+	if alphaFrame then
+		if Library:IsMouseOverFrame(alphaFrame) or
+		   (pos.X >= alphaFrame.AbsolutePosition.X and pos.X <= alphaFrame.AbsolutePosition.X + alphaFrame.AbsoluteSize.X and
+		    pos.Y >= alphaFrame.AbsolutePosition.Y and pos.Y <= alphaFrame.AbsolutePosition.Y + alphaFrame.AbsoluteSize.Y) then
+			
 			SlidingAlpha = true
 			Colorpicker:SlideAlpha(Input)
 		end
 	end
 end)
 
--- While dragging (movement)
+-- ==================== INPUT CHANGED (Dragging) ====================
 Library:Connect(UserInputService.InputChanged, function(Input)
 	if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
 		if SlidingPalette then Colorpicker:SlidePalette(Input) end
@@ -3842,7 +3853,7 @@ Library:Connect(UserInputService.InputChanged, function(Input)
 	end
 end)
 
--- Release sliders
+-- ==================== INPUT ENDED (Release) ====================
 Library:Connect(UserInputService.InputEnded, function(Input)
 	if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 		SlidingPalette = false
@@ -3851,7 +3862,7 @@ Library:Connect(UserInputService.InputEnded, function(Input)
 	end
 end)
 
--- Close when tapping/clicking outside
+-- ==================== CLOSE OUTSIDE CLICK ====================
 Library:Connect(UserInputService.InputBegan, function(Input)
 	if not Colorpicker.IsOpen then return end
 	if Input.UserInputType ~= Enum.UserInputType.MouseButton1 and Input.UserInputType ~= Enum.UserInputType.Touch then 
@@ -3870,7 +3881,7 @@ Library:Connect(UserInputService.InputBegan, function(Input)
 	Colorpicker:SetOpen(false)
 end)
 
--- Set default color
+-- Default
 if Data.Default then
 	Colorpicker:Set(Data.Default, Data.Alpha)
 	OldColor = Colorpicker.Color
